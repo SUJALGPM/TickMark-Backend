@@ -5,8 +5,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const methodOverride = require('method-override');
 const { connectDB } = require('./Config/Db');
-const CodeRoute = require('./Routes/CodeRoute');
-const FileRoute = require("./Routes/FileRoute");
+
 
 //Configure dotenv file...
 dotenv.config();
@@ -31,8 +30,8 @@ app.set('view engine', 'ejs');
 
 
 //Configure Routes...
-app.use('/api', CodeRoute);
-app.use('/api', FileRoute);
+// app.use('/api', CodeRoute);
+// app.use('/api', FileRoute);
 
 
 //Configure Server Port...
