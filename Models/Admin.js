@@ -25,6 +25,9 @@ const adminSchema = new mongoose.Schema({
     Teachers: [
         { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher' }
     ],
+    Students: [
+        { type: mongoose.Schema.Types.ObjectId, ref: 'Student' }
+    ],
     DateOfCreation: {
         type: String,
         default: () => {
