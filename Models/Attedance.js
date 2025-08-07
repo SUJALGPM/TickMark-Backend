@@ -11,11 +11,6 @@ const attendanceSchema = new mongoose.Schema({
     ref: "Subject",
     required: true
   },
-  semesterId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Semester",
-    required: true
-  },
   date: {
     type: Date,
     required: true
@@ -32,7 +27,8 @@ const attendanceSchema = new mongoose.Schema({
   },
   recordedBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Teacher"
+    ref: "Teacher",
+    required: true
   },
   createdAt: {
     type: Date,

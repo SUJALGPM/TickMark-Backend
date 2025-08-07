@@ -1,21 +1,11 @@
 const mongoose = require("mongoose");
 
 const departmentSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-    unique: true
-  },
-  description: {
-    type: String
-  },
-  divisions: [String], 
-  batches: [String],   
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
+  name: { type: String, unique: true },
+  description: String,
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "Teacher" },
+  semesters: [{ type: mongoose.Schema.Types.ObjectId, ref: "Semester" }],
+  createdAt: { type: Date, default: Date.now },
 });
 
-const Department = mongoose.model("Department", departmentSchema);
-module.exports = Department;
+module.exports = mongoose.model("Department", departmentSchema);

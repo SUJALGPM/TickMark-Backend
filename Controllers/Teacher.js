@@ -1,13 +1,29 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
-const teacherModel = require("../models/teacherModel"); 
-
-const router = express.Router();
+const jwt = require("jsonwebtoken");
+const teacherModel = require("../models/Teacher");
 
 // Register Teacher...
 const register = async (req, res) => {
   try {
-    const { teacherName, teacherEmail, teacherPassword, teacherGender, teacherNumber, department, createdBy } = req.body;
+
+    const {
+      teacherName,
+      teacherEmail,
+      teacherPassword,
+      teacherGender,
+      teacherNumber,
+      department,
+      createdBy,
+    } = req.body;
+
+    // Check admin exist or not..!
+    const adminExist = await adminModel.findById(createdBy);
+    if (!adminExist) {
+      return res
+        .status(404)
+        .send({ message: "Admin not found..!!", success: false });
+    }
 
     // Check if teacher already exists
     const existing = await teacherModel.findOne({ teacherEmail });
@@ -18,7 +34,7 @@ const register = async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(teacherPassword, 10);
 
-    // Save new teacher
+    // Create and save new teacher
     const newTeacher = new teacherModel({
       teacherName,
       teacherEmail,
@@ -26,23 +42,33 @@ const register = async (req, res) => {
       teacherGender,
       teacherNumber,
       department,
-      createdBy
+      createdBy,
     });
 
     const savedTeacher = await newTeacher.save();
 
+    console.log("new teacher :", savedTeacher);
+
+    // Update Admin's Teachers array
+    const updatedAdmin = await adminModel.findByIdAndUpdate(
+      createdBy,
+      { $push: { Teachers: savedTeacher._id } },
+      { new: true }
+    );
+
+    console.log("udpate admin model :", updatedAdmin);
+
     res.status(201).json({
       message: "Teacher registered successfully",
-      teacher: savedTeacher
+      teacher: savedTeacher,
     });
-
   } catch (error) {
     res.status(500).json({
       message: "Error registering teacher",
-      error
+      error,
     });
   }
-}
+};
 
 // Login Teacher...
 const login = async (req, res) => {
@@ -54,26 +80,31 @@ const login = async (req, res) => {
       return res.status(404).json({ message: "Teacher not found" });
     }
 
-    const isPasswordValid = await bcrypt.compare(teacherPassword, teacher.teacherPassword);
+    const isPasswordValid = await bcrypt.compare(
+      teacherPassword,
+      teacher.teacherPassword
+    );
     if (!isPasswordValid) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // Optional: generate JWT token
-    const token = jwt.sign({ teacherId: teacher._id }, SECRET_KEY, { expiresIn: "7d" });
+    // generate JWT token
+    const JWT_SECRET = process.env.SECRETKEY || "your_default_secret_key";
+    const token = jwt.sign({ teacherId: teacher._id }, JWT_SECRET, {
+      expiresIn: "7d",
+    });
 
     res.status(200).json({
       message: "Login successful",
       token,
-      teacher
+      teacher,
     });
-
   } catch (error) {
     res.status(500).json({
       message: "Login failed",
-      error
+      error,
     });
   }
-}
+};
 
-module.exports = {register,login}
+module.exports = { register, login };

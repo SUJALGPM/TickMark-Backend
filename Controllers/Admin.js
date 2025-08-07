@@ -1,7 +1,7 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const Admin = require("../Models/Admin");
-const Department = require("../models/Department");
+const Department = require("../Models/Department");
 const Semester = require("../Models/Semester");
 const Subject = require("../Models/Subject");
 

@@ -6,7 +6,7 @@ const bodyParser = require('body-parser');
 const methodOverride = require('method-override');
 const { connectDB } = require('./Config/Db');
 const adminRoutes = require("./Routes/Admin");
-const teacherRoute = require("./Models/Teacher");
+const teacherRoute = require("./Routes/Teacher");
 
 //Configure dotenv file...
 dotenv.config();
