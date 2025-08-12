@@ -210,7 +210,7 @@ const createSubject = async (req, res) => {
 // Allocation of teacher to subjects...
 const createAllocation = async (req, res) => {
   try {
-    const { subjectId, teacherId, type, totalPlanned, totalConducted } = req.body;
+    const { subjectId, teacherId, type, totalPlanned, totalConducted, div, batch } = req.body;
 
     // Validate teacher
     const teacherExists = await Teacher.findById(teacherId);
@@ -232,6 +232,8 @@ const createAllocation = async (req, res) => {
       type,
       totalPlanned: totalPlanned || 0,
       totalConducted: totalConducted || 0,
+      division: div,
+      batch: batch
     });
 
     await allocation.save();

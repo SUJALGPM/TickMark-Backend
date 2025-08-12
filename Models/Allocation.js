@@ -18,6 +18,8 @@ const allocationSchema = new mongoose.Schema({
     },
   ],
   type: { type: String, enum: ["Theory", "Practical"], required: true },
+  division: { type: String },
+  batch: { type: String },
   totalPlanned: { type: Number, default: 0 },
   totalConducted: { type: Number, default: 0 },
   createdAt: {
