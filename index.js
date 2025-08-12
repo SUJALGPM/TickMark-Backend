@@ -7,6 +7,7 @@ const methodOverride = require('method-override');
 const { connectDB } = require('./Config/Db');
 const adminRoutes = require("./Routes/Admin");
 const teacherRoute = require("./Routes/Teacher");
+const studentRoute = require("./Routes/Student");
 
 //Configure dotenv file...
 dotenv.config();
@@ -33,6 +34,7 @@ app.set('view engine', 'ejs');
 //Configure Routes...
 app.use('/api/admin', adminRoutes);
 app.use('/api/teacher', teacherRoute);
+app.use('/api/student', studentRoute);
 
 
 //Configure Server Port...

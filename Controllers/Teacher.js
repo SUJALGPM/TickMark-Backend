@@ -2,9 +2,10 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const teacherModel = require("../Models/Teacher");
 const adminModel = require("../Models/Admin");
+const XLSX = require("xlsx");
 
 // Register Teacher...
-const register = async (req, res) => {
+const teacherRegister = async (req, res) => {
   try {
     const {
       teacherName,
@@ -65,7 +66,7 @@ const register = async (req, res) => {
 };
 
 // Login Teacher...
-const login = async (req, res) => {
+const teacherLogin = async (req, res) => {
   try {
     const { teacherEmail, teacherPassword } = req.body;
 
@@ -101,4 +102,89 @@ const login = async (req, res) => {
   }
 };
 
-module.exports = { register, login };
+// Upload all teacher data through excel sheet...
+const uploadTeacherDataExcel = async (req, res) => {  
+  try {
+    const createdBy = req.body.createdBy;
+
+    // Check admin exist or not..!
+    const adminExist = await adminModel.findById(createdBy);
+    if (!adminExist) {
+      return res.status(404).json({ message: "Admin not found", success: false });
+    }
+
+    // Read Excel file
+    const workbook = XLSX.readFile(req.file.path);
+    const sheetName = workbook.SheetNames[0];
+    const data = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+    let createdTeachers = [];
+    for (const row of data) {
+      const {
+        UID,
+        "NAME OF TEACHERS": teacherName,
+        PASSWORD: plainPassword,
+        GENDER: rawGender,
+        DEPARTMENT: department,
+        CONTACT: teacherNumber
+      } = row;
+
+      // Skip incomplete rows
+      if (!teacherName || !plainPassword || !department) continue; 
+
+      // Generate email from name → name.surname@spit.ac.in
+      const nameParts = teacherName.trim().toLowerCase().split(/\s+/);
+      let teacherEmail = "";
+      if (nameParts.length >= 2) {
+        teacherEmail = `${nameParts[0]}.${nameParts[nameParts.length - 1]}@spit.ac.in`;
+      } else {
+        teacherEmail = `${nameParts[0]}@spit.ac.in`;
+      }
+
+      // Map gender codes to full form
+      let teacherGender = null;
+      if (rawGender) {
+        const g = rawGender.toString().trim().toUpperCase();
+        if (g === "M") teacherGender = "Male";
+        else if (g === "F") teacherGender = "Female";
+        else if (g === "O") teacherGender = "Other";
+      }
+
+      // Avoid duplicates
+      const existing = await teacherModel.findOne({ teacherEmail });
+      if (existing) continue;
+
+      const hashedPassword = await bcrypt.hash(plainPassword, 10);
+
+      const newTeacher = new teacherModel({
+        teacherName,
+        teacherEmail,
+        teacherPassword: hashedPassword,
+        teacherGender,
+        teacherNumber: teacherNumber && teacherNumber !== "NA" ? teacherNumber : null,
+        department,
+        createdBy,
+      });
+
+      const savedTeacher = await newTeacher.save();
+
+      // Update teacher id in admin record...
+      await adminModel.findByIdAndUpdate(createdBy, {
+        $push: { Teachers: savedTeacher._id },
+      });
+      createdTeachers.push(savedTeacher);
+    }
+
+    res.status(201).json({
+      message: "Teachers uploaded successfully",
+      teachers: createdTeachers,
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error uploading teachers", error });
+  }
+};
+
+
+module.exports = { teacherRegister, teacherLogin, uploadTeacherDataExcel };

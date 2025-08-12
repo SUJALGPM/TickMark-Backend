@@ -12,7 +12,6 @@ const studentSchema = new mongoose.Schema({
   attedanceRecord :[{ type: mongoose.Schema.Types.ObjectId, ref: "Attendance" }],
   departmentId: { type: mongoose.Schema.Types.ObjectId, ref: "Department" },
   semesterId: { type: mongoose.Schema.Types.ObjectId, ref: "Semester" },
-  subjects: { type: mongoose.Schema.Types.ObjectId, ref: "Subject" },
   createdAt: {
     type: String,
     default: () => {
