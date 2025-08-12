@@ -6,6 +6,8 @@ const {
   addDivision,
   addBatch,
   createSemester,
+  createSubject,
+  createAllocation,
 } = require("../Controllers/Admin");
 const router = express.Router();
 
@@ -18,13 +20,14 @@ router.post("/login", adminLogin);
 // Create Department...
 router.post("/create-dpt", createDepartment);
 
-// Add division in department...
-router.post("/add-div", addDivision);
-
-// Add Batch in department...
-router.post("/add-batch", addBatch);
-
 // Create semester...
 router.post("/create-sem", createSemester);
+
+// Create subject...
+router.post("/create-sub", createSubject);
+
+// Create allocation...
+router.post("/create-alloc", createAllocation);
+
 
 module.exports = router;

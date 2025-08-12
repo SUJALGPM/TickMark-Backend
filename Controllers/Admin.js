@@ -4,11 +4,14 @@ const Admin = require("../Models/Admin");
 const Department = require("../Models/Department");
 const Semester = require("../Models/Semester");
 const Subject = require("../Models/Subject");
+const Teacher = require("../Models/Teacher");
+const Allocation = require("../Models/Allocation");
 
 // Register Admin...
 const adminRegister = async (req, res) => {
   try {
-    const { adminId, adminName, adminPassword, adminGender, adminNumber } = req.body;
+    const { adminId, adminName, adminPassword, adminGender, adminNumber } =
+      req.body;
 
     // Check if admin already exists
     const existingAdmin = await Admin.findOne({ adminId });
@@ -25,7 +28,7 @@ const adminRegister = async (req, res) => {
       adminName,
       adminPassword: hashedPassword,
       adminGender,
-      adminNumber
+      adminNumber,
     });
 
     await newAdmin.save();
@@ -52,7 +55,7 @@ const adminLogin = async (req, res) => {
 
     // Create JWT Token
     const token = jwt.sign({ adminId: admin._id }, "your_jwt_secret", {
-      expiresIn: "1d"
+      expiresIn: "1d",
     });
 
     res.status(200).json({ message: "Login successful", token, admin });
@@ -64,117 +67,191 @@ const adminLogin = async (req, res) => {
 // Create Department...
 const createDepartment = async (req, res) => {
   try {
-    const { name } = req.body;
+    const { name, adminId } = req.body;
 
+    // Check admin exist or not
+    const adminExist = await Admin.findById(adminId);
+    if (!adminExist) {
+      return res
+        .status(404)
+        .send({ message: "Admin not found..!!", success: false });
+    }
+
+    // Check department exists or not
     const existing = await Department.findOne({ name });
     if (existing) {
       return res.status(400).json({ message: "Department already exists" });
     }
 
+    // Create department
     const newDept = new Department({ name });
-    await newDept.save();
+    const savedDept = await newDept.save();
 
-    res.status(201).json({ message: "Department created", department: newDept });
+    // Push department ID into admin's Departments array
+    await Admin.findByIdAndUpdate(
+      adminId,
+      { $push: { Departments: savedDept._id } },
+      { new: true }
+    );
+
+    res
+      .status(201)
+      .json({ message: "Department created", department: savedDept });
   } catch (error) {
     res.status(500).json({ message: "Error creating department", error });
   }
 };
 
-// Add Division in department...
-const addDivision = async (req, res) => {
-    try {
-        const { departmentId, divisionName } = req.body;
-
-        if (!departmentId || !divisionName) {
-            return res.status(400).json({ message: "Department ID and Division Name required" });
-        }
-
-        const dept = await Department.findById(departmentId);
-        if (!dept) return res.status(404).json({ message: "Department not found" });
-
-        // Prevent duplicate
-        if (dept.divisions.includes(divisionName)) {
-            return res.status(400).json({ message: "Division already exists" });
-        }
-
-        dept.divisions.push(divisionName);
-        await dept.save();
-
-        res.status(200).json({ message: "Division added", department: dept });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Error adding division" });
-    }
-};
-
-// Add Batch in department...
-const addBatch = async (req, res) => {
-    try {
-        const { departmentId, batchName } = req.body;
-
-        if (!departmentId || !batchName) {
-            return res.status(400).json({ message: "Department ID and Batch Name required" });
-        }
-
-        const dept = await Department.findById(departmentId);
-        if (!dept) return res.status(404).json({ message: "Department not found" });
-
-        // Prevent duplicate
-        if (dept.batches.includes(batchName)) {
-            return res.status(400).json({ message: "Batch already exists" });
-        }
-
-        dept.batches.push(batchName);
-        await dept.save();
-
-        res.status(200).json({ message: "Batch added", department: dept });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Error adding batch" });
-    }
-};
-
 // Create Semester...
 const createSemester = async (req, res) => {
   try {
-    const { name } = req.body;
+    const { semesterNumber, academicYear, dptId, startMonth, endMonth } = req.body;
 
-    const existing = await Semester.findOne({ name });
+    // Check department exist or not
+    const dptExist = await Department.findById(dptId);
+    if (!dptExist) {
+      return res
+        .status(404)
+        .send({ message: "Department not found..!!", success: false });
+    }
+
+    // Check if semester already exists for this department and year
+    const existing = await Semester.findOne({ 
+      semesterNumber, 
+      academicYear, 
+      departmentId: dptId 
+    });
     if (existing) {
       return res.status(400).json({ message: "Semester already exists" });
     }
 
-    const newSem = new Semester({ name });
-    await newSem.save();
+    // Create new semester
+    const newSem = new Semester({
+      semesterNumber,
+      academicYear,
+      departmentId: dptId,
+      startMonth,
+      endMonth
+    });
 
-    res.status(201).json({ message: "Semester created", semester: newSem });
+    const savedSem = await newSem.save();
+
+    // Push semester ID into department's semesters array
+    await Department.findByIdAndUpdate(
+      dptId,
+      { $push: { semesters: savedSem._id } },
+      { new: true }
+    );
+
+    res.status(201).json({ message: "Semester created", semester: savedSem });
+
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Error creating semester", error });
   }
 };
-
+  
 // Create Subjects...
 const createSubject = async (req, res) => {
   try {
-    const { name, subjectType, department, semester, assignedTeacher } = req.body;
+    const { 
+      name, 
+      code, 
+      departmentId, 
+      semesterId, 
+    } = req.body;
 
-    const subject = new Subject({
+    // Check department exists
+    const departmentExists = await Department.findById(departmentId);
+    if (!departmentExists) {
+      return res.status(404).json({ message: "Department not found" });
+    }
+
+    // Check semester exists
+    const semesterExists = await Semester.findById(semesterId);
+    if (!semesterExists) {
+      return res.status(404).json({ message: "Semester not found" });
+    }
+
+    // Check if subject code already exists
+    const existingSubject = await Subject.findOne({ code });
+    if (existingSubject) {
+      return res.status(400).json({ message: "Subject code already exists" });
+    }
+
+    // Create subject with totalPlanned inside theory/practical
+    const newSubject = new Subject({
       name,
-      subjectType,
-      department,
-      semester,
-      assignedTeacher
+      code,
+      departmentId,
+      semesterId,
     });
 
-    await subject.save();
+    const savedSubject = await newSubject.save();
 
-    res.status(201).json({ message: "Subject created successfully", subject });
+    // Push subject ID into semester's subjects array
+    await Semester.findByIdAndUpdate(
+      semesterId,
+      { $push: { subjects: savedSubject._id } },
+      { new: true }
+    );
+
+    res.status(201).json({ 
+      message: "Subject created successfully", 
+      subject: savedSubject 
+    });
+
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Failed to create subject", error });
+  }
+};  
+
+// Allocation of teacher to subjects...
+const createAllocation = async (req, res) => {
+  try {
+    const { subjectId, teacherId, type, totalPlanned, totalConducted } = req.body;
+
+    // Validate teacher
+    const teacherExists = await Teacher.findById(teacherId);
+    if (!teacherExists) {
+      return res.status(404).json({ success: false, message: "Teacher not found" });
+    }
+
+    // Validate subject
+    const subjectExists = await Subject.findById(subjectId);
+    if (!subjectExists) {
+      return res.status(404).json({ success: false, message: "Subject not found" });
+    }
+
+    // Create allocation without students
+    const allocation = new Allocation({
+      subjectId,
+      teacherId,
+      students: [], 
+      type,
+      totalPlanned: totalPlanned || 0,
+      totalConducted: totalConducted || 0,
+    });
+
+    await allocation.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Allocation created successfully",
+      data: allocation,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 
-
-
-module.exports = {adminRegister,adminLogin,createDepartment,addBatch,addDivision,createSemester,createSubject}
+module.exports = {
+  adminRegister,
+  adminLogin,
+  createDepartment,
+  createSemester,
+  createSubject,
+  createAllocation
+};

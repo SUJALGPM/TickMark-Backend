@@ -1,12 +1,11 @@
-const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const teacherModel = require("../models/Teacher");
+const teacherModel = require("../Models/Teacher");
+const adminModel = require("../Models/Admin");
 
 // Register Teacher...
 const register = async (req, res) => {
   try {
-
     const {
       teacherName,
       teacherEmail,
@@ -44,19 +43,14 @@ const register = async (req, res) => {
       department,
       createdBy,
     });
-
     const savedTeacher = await newTeacher.save();
 
-    console.log("new teacher :", savedTeacher);
-
     // Update Admin's Teachers array
-    const updatedAdmin = await adminModel.findByIdAndUpdate(
+    await adminModel.findByIdAndUpdate(
       createdBy,
       { $push: { Teachers: savedTeacher._id } },
       { new: true }
     );
-
-    console.log("udpate admin model :", updatedAdmin);
 
     res.status(201).json({
       message: "Teacher registered successfully",
