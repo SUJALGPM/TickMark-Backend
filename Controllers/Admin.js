@@ -210,7 +210,13 @@ const createSubject = async (req, res) => {
 // Allocation of teacher to subjects...
 const createAllocation = async (req, res) => {
   try {
-    const { subjectId, teacherId, type, totalPlanned, totalConducted, div, batch } = req.body;
+    const { adminId, subjectId, teacherId, type, totalPlanned, totalConducted, division, batch } = req.body;
+
+    // Validate admin
+    const adminExists = await Admin.findById(adminId);
+    if (!adminExists) {
+      return res.status(404).json({ success: false, message: "Admin not found" });
+    }
 
     // Validate teacher
     const teacherExists = await Teacher.findById(teacherId);
@@ -224,25 +230,49 @@ const createAllocation = async (req, res) => {
       return res.status(404).json({ success: false, message: "Subject not found" });
     }
 
-    // Create allocation without students
+    // Duplicate check
+    let duplicateQuery = { subjectId, type };
+    if (type === "Theory") {
+      duplicateQuery.division = division || null;
+    } else if (type === "Practical") {
+      if (!division || !batch) {
+        return res.status(400).json({ success: false, message: "Division and Batch are required for Practical" });
+      }
+      duplicateQuery.division = division;
+      duplicateQuery.batch = batch;
+    } else {
+      return res.status(400).json({ success: false, message: "Invalid type. Must be 'Theory' or 'Practical'" });
+    }
+
+    const allocationExists = await Allocation.findOne(duplicateQuery);
+    if (allocationExists) {
+      return res.status(400).json({ success: false, message: "Allocation already exists for this subject/type/division/batch" });
+    }
+
+    // Create allocation
     const allocation = new Allocation({
       subjectId,
       teacherId,
-      students: [], 
+      students: [],
       type,
       totalPlanned: totalPlanned || 0,
       totalConducted: totalConducted || 0,
-      division: div,
-      batch: batch
+      division: type === "Theory" ? division || null : division,
+      batch: type === "Theory" ? null : batch
     });
 
     await allocation.save();
 
+    // Push allocation into Admin's Allocations array
+    adminExists.Allocations.push(allocation._id);
+    await adminExists.save();
+
     res.status(201).json({
       success: true,
-      message: "Allocation created successfully",
+      message: "Allocation created and linked to admin successfully",
       data: allocation,
     });
+
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

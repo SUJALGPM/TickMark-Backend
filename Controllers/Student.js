@@ -1,9 +1,14 @@
 const Student = require("../models/Student");
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const xlsx = require("xlsx");
 const Department = require("../Models/Department");
 const Semester = require("../Models/Semester");
+const Allocation = require("../Models/Allocation");
+const adminModel = require("../Models/Admin");
 
-// REGISTER STUDENT
+
+// Register Student...
 const studentRegister = async (req, res) => {
   try {
     const {
@@ -17,10 +22,9 @@ const studentRegister = async (req, res) => {
       gender,
       departmentId,
       semesterId,
-      subjects,
     } = req.body;
 
-    // Check if student already exists using studentId only
+    // 1. Check if student already exists
     const studentExists = await Student.findOne({ studentId });
     if (studentExists) {
       return res
@@ -28,10 +32,10 @@ const studentRegister = async (req, res) => {
         .json({ success: false, message: "Student ID already registered" });
     }
 
-    // Hash password
+    // 2. Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create student
+    // 3. Create student
     const newStudent = await Student.create({
       name,
       studentId,
@@ -43,12 +47,43 @@ const studentRegister = async (req, res) => {
       gender,
       departmentId,
       semesterId,
-      subjects,
     });
 
+    // 4. THEORY allocations
+    const theoryAllocations = await Allocation.find({
+      type: "Theory",
+      division: division,
+    });
+
+    // 5. PRACTICAL allocations
+    const practicalAllocations = await Allocation.find({
+      type: "Practical",
+      division: division,
+      batch: batch,
+    });
+
+    // Combine both
+    const allAllocations = [...theoryAllocations, ...practicalAllocations];
+
+    let updatedCount = 0;
+
+    if (allAllocations.length > 0) {
+      await Promise.all(
+        allAllocations.map(async (alloc) => {
+          if (!alloc.students.includes(newStudent._id)) {
+            alloc.students.push(newStudent._id);
+            await alloc.save();
+            updatedCount++;
+          }
+        })
+      );
+    }
+
+    // 6. Return success with count
     res.status(201).json({
       success: true,
-      message: "Student registered successfully",
+      message: `Student registered successfully and linked to ${updatedCount} allocation(s)`,
+      updatedAllocations: updatedCount,
       student: newStudent,
     });
   } catch (error) {
@@ -57,7 +92,7 @@ const studentRegister = async (req, res) => {
   }
 };
 
-// LOGIN STUDENT
+// Login Student...
 const studentLogin = async (req, res) => {
   try {
     const { studentId, password } = req.body;
@@ -78,9 +113,17 @@ const studentLogin = async (req, res) => {
         .json({ success: false, message: "Invalid password" });
     }
 
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: student._id, role: "student" },
+      process.env.SECRETKEY,
+      { expiresIn: "7d" }
+    );
+
     res.status(200).json({
       success: true,
       message: "Login successful",
+      token,
       student,
     });
   } catch (error) {
@@ -101,7 +144,7 @@ function generateEmail(fullName, type) {
 // Upload student Excel sheet...
 const uploadStudentExcelSheet = async (req, res) => {
   try {
-    const {departmentId,semesterId,adminId} = req.body;
+    const { departmentId, semesterId, adminId } = req.body;
 
     // Check admin exist or not..!
     const adminExist = await adminModel.findById(adminId);
@@ -139,6 +182,7 @@ const uploadStudentExcelSheet = async (req, res) => {
     const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
     const insertedStudents = [];
+    let count = 0;
 
     for (const row of sheetData) {
       const {
@@ -180,17 +224,31 @@ const uploadStudentExcelSheet = async (req, res) => {
 
       insertedStudents.push(student);
 
-      // Push to allocation where division and batch match
-      await Allocation.findOneAndUpdate(
-        { division, batch },
-        { $push: { students: student._id } },
-        { new: true }
+      // Push to allocations with new logic
+      const cleanDivision = division?.trim();
+      const cleanBatch = batch?.trim() || null;
+
+      // Always link to Theory
+      await Allocation.updateMany(
+        { division: cleanDivision, type: "Theory" },
+        { $addToSet: { students: student._id } }
       );
+
+      // Link to Practical if batch is given
+      if (cleanBatch) {
+        await Allocation.updateMany(
+          { division: cleanDivision, batch: cleanBatch, type: "Practical" },
+          { $addToSet: { students: student._id } }
+        );
+      }
+
+      count++;
+      console.log(`${count} students uploaded so far...`);
     }
 
     res.status(201).json({
       success: true,
-      message: "Students uploaded successfully",
+      message: "Student Uploaded successfully and linked to allocations",
       count: insertedStudents.length,
       students: insertedStudents,
     });
@@ -200,4 +258,29 @@ const uploadStudentExcelSheet = async (req, res) => {
   }
 };
 
-module.exports = { studentRegister, studentLogin, uploadStudentExcelSheet };
+// Clear all students from allocations
+const clearAllAllocationStudents = async (req, res) => {
+  try {
+    // $set will replace students array with an empty array
+    const result = await Allocation.updateMany({}, { $set: { students: [] } });
+
+    res.status(200).json({
+      success: true,
+      message: "All student IDs removed from all allocations",
+      modifiedCount: result.modifiedCount,
+    });
+  } catch (error) {
+    console.error("Error clearing allocation students:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+module.exports = {
+  studentRegister,
+  studentLogin,
+  uploadStudentExcelSheet,
+  clearAllAllocationStudents,
+};

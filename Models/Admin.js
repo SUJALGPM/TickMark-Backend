@@ -8,6 +8,7 @@ const adminSchema = new mongoose.Schema({
   adminNumber: String,
   Teachers: [{ type: mongoose.Schema.Types.ObjectId, ref: "Teacher" }],
   Departments: [{ type: mongoose.Schema.Types.ObjectId, ref: "Department" }],
+  Allocations: [{ type: mongoose.Schema.Types.ObjectId, ref: "Allocation" }],
   createdAt: {
     type: String,
     default: () => {
