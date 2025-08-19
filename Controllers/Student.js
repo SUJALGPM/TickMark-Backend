@@ -278,9 +278,37 @@ const clearAllAllocationStudents = async (req, res) => {
   }
 };
 
+// Get Particular Student...
+const getParticularStudent = async (req, res) => {
+  try {
+    const { studentId } = req.body;
+
+    // Use findById with only the id
+    const student = await Student.findById(studentId);
+
+    if (!student) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Student not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Student data fetch successful",
+      student,
+    });
+  } catch (error) {
+    console.error("Error in fetching Student Data:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+
+
 module.exports = {
   studentRegister,
   studentLogin,
   uploadStudentExcelSheet,
   clearAllAllocationStudents,
+  getParticularStudent
 };

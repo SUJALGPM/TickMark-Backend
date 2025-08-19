@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { studentRegister, studentLogin, uploadStudentExcelSheet, clearAllAllocationStudents } = require("../Controllers/Student");
+const { studentRegister, studentLogin, uploadStudentExcelSheet, clearAllAllocationStudents, getParticularStudent } = require("../Controllers/Student");
 const upload = require("../Middlewares/UploadExcelFile");
 
 // Register student...
@@ -14,6 +14,9 @@ router.post("/upload-student-sheet", upload.single("file"), uploadStudentExcelSh
 
 // Clear student allocation from schema....
 router.post("/clear-students", clearAllAllocationStudents);
+
+// Fetch particular student data....
+router.get("/single-student-data", getParticularStudent);
 
 
 module.exports = router;

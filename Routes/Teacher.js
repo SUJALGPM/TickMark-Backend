@@ -1,5 +1,5 @@
 const express = require("express");
-const { uploadTeacherDataExcel, teacherRegister, teacherLogin, markAttendance } = require("../Controllers/Teacher");
+const { uploadTeacherDataExcel, teacherRegister, teacherLogin, markAttendance, clearAttendanceRecordOfStudent, markAttedanceMonthWise } = require("../Controllers/Teacher");
 const router = express.Router();
 const upload = require("../Middlewares/UploadExcelFile");
 
@@ -15,5 +15,10 @@ router.post("/upload-teacher-sheet", upload.single("file"), uploadTeacherDataExc
 // Mark Attedance of students....
 router.post("/mark-attedance", markAttendance);
 
+// Clear attedanceRecord array from students schema...
+router.post("/clear-student-attedance-array", clearAttendanceRecordOfStudent);
+
+// Mark Attedance of students....
+router.post("/mark-attedance-monthWise",upload.single("file"), markAttedanceMonthWise);
 
 module.exports = router;
