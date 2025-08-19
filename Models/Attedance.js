@@ -48,5 +48,11 @@ const attendanceSchema = new mongoose.Schema({
   },
 });
 
+// Unique index to prevent duplicate attendance
+attendanceSchema.index(
+  { studentId: 1, subjectId: 1, type: 1, createdAtDate: 1 },
+  { unique: true }
+);
+
 const Attendance = mongoose.model("Attendance", attendanceSchema);
 module.exports = Attendance;

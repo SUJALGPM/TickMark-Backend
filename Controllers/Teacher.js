@@ -3,6 +3,8 @@ const jwt = require("jsonwebtoken");
 const teacherModel = require("../Models/Teacher");
 const adminModel = require("../Models/Admin");
 const XLSX = require("xlsx");
+const Attendance = require("../Models/Attedance");
+const Student = require("../Models/Student");
 
 // Register Teacher...
 const teacherRegister = async (req, res) => {
@@ -186,5 +188,62 @@ const uploadTeacherDataExcel = async (req, res) => {
   }
 };
 
+// Mark student attedance...
+const markAttendance = async (req, res) => {
+  try {
+    const { studentId, subjectId, status, type, recordedBy } = req.body;
 
-module.exports = { teacherRegister, teacherLogin, uploadTeacherDataExcel };
+    if (!studentId || !subjectId || !status || !type || !recordedBy) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required.",
+      });
+    }
+
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found.",
+      });
+    }
+
+    // Create attendance record
+    const attendance = new Attendance({
+      studentId,
+      subjectId,
+      status,
+      type,
+      recordedBy
+    });
+
+    await attendance.save();
+
+    // Push attendance ID into student's record
+    student.attedanceRecord.push(attendance._id);
+    await student.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Attendance marked successfully.",
+      data: attendance,
+    });
+
+  } catch (error) {
+    if (error.code === 11000) { 
+      return res.status(409).json({
+        success: false,
+        message: "Attendance already marked for this student today.",
+      });
+    }
+
+    console.error("Error marking attendance:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+    });
+  }
+};
+
+
+module.exports = { teacherRegister, teacherLogin, uploadTeacherDataExcel, markAttendance };
